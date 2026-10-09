@@ -15,101 +15,106 @@
 
 # webflow-converter
 
-Convierte un componente React + Tailwind (`.tsx`) en el portapapeles nativo de Webflow (`@webflow/XscpData`). Se pega
-con Cmd+V en el Designer y llega con clases, variantes por breakpoint y tipos nativos. La Data API de Webflow no
-admite ni combos ni variantes.
+Converts a React + Tailwind component (`.tsx`) into Webflow's native clipboard format (`@webflow/XscpData`). Paste it
+with Cmd+V in the Designer and it lands with classes, per-breakpoint variants and native element types. The Webflow
+Data API supports neither combo classes nor variants.
 
-## Estado
+## Status
 
-| fase | estado |
+| phase | status |
 |---|---|
-| Evaluador en sandbox, Tailwind, cascada a desktop-first | hecho |
-| Modo B (BEM autocontenido) | hecho; validado pegando secciones reales en Webflow (desktop y móvil) |
-| Modo A (Client-First, reusa la style guide del sitio) | pendiente |
-| Validación en lote contra pares React/Webflow | pendiente |
-| Tipos nativos (Tabs, Dropdown, Navbar, Form) | pendiente |
+| Sandboxed evaluator, Tailwind resolution, desktop-first cascade | done |
+| Mode B (self-contained BEM) | done; validated by pasting real sections into Webflow (desktop and mobile) |
+| Mode A (Client-First, reuses the site's style guide) | planned |
+| Batch validation against React/Webflow pairs | planned |
+| Native types (Tabs, Dropdown, Navbar, Form) | planned |
 
-Es un prototipo: la API y la salida pueden cambiar.
+This is a prototype: the API and the output may change.
 
-## Uso
+## Usage
 
-Requiere [Bun](https://bun.sh) 1.3 y macOS. El sandbox usa `sandbox-exec`; ver [Seguridad](#seguridad).
+Requires [Bun](https://bun.sh) 1.3 and macOS. The sandbox uses `sandbox-exec`; see [Security](#security).
 
 ```bash
 bun install
 
-# 1. Convertir un componente
-bun --no-install run src/cli.ts convert ruta/al/componente.tsx --prefix mi-
+# 1. Convert a component
+bun --no-install run src/cli.ts convert path/to/component.tsx --prefix my-
 
-# 2. Generar la página de copia y servirla
+# 2. Build the copy page and serve it
 bun --no-install run tools/copy-page.ts
 cd out/convert && python3 -m http.server 8790 --bind 127.0.0.1
-# abrir http://127.0.0.1:8790/ en Chromium
+# open http://127.0.0.1:8790/ in a Chromium browser
 ```
 
-3. Pulsa **Copy** en el componente y pégalo con Cmd+V en el Designer, con el Body o un contenedor seleccionado.
-4. Si trae head CSS, pégalo en *Page settings > Custom code*.
+3. Click **Copy** on the component and paste it with Cmd+V in the Designer, with the Body or a container selected.
+4. If it comes with head CSS, paste that into *Page settings > Custom code*.
 
-### Opciones de `convert`
+The copy page is needed because the Designer only accepts a paste whose clipboard carries `application/json`, and
+only a browser copy event can write that type.
 
-| opción | qué hace |
+### `convert` options
+
+| option | what it does |
 |---|---|
-| `--prefix <p>` | Prefijo para todas las clases (`wfc-cta1_heading`). **Úsalo siempre**: Webflow renombra con " 2" cualquier clase con CSS que ya exista en el sitio, aunque el CSS sea idéntico, y el head CSS deja de apuntar a ella. |
-| `--wide` | Emite las variantes de 1280 y 1440. Si no lo pasas, se pliegan en desktop, porque pegar una variante de 1280 agrega ese breakpoint a todo el sitio. |
-| `--out <dir>` | Carpeta de salida; por defecto `out/convert/`. |
-| `--tailwind-config <ruta>` | Usa el `tailwind.config` de tu proyecto en vez del preset por defecto (`@relume_io/relume-tailwind`). |
-| `--mode b` | El único modo disponible por ahora. |
+| `--prefix <p>` | Prefix for every class (`my-cta1_heading`). **Always use it**: Webflow renames any class with CSS that already exists on the site with a " 2" suffix, even when the CSS is identical, and the head CSS stops matching it. |
+| `--wide` | Emits the 1280 and 1440 variants. Without it they are folded into desktop, because pasting a 1280 variant adds that breakpoint to the whole site. |
+| `--tailwind-config <path>` | Uses your project's `tailwind.config` instead of the default preset (`@relume_io/relume-tailwind`). |
+| `--out <dir>` | Output directory; `out/convert/` by default. |
+| `--mode b` | The only mode available for now. |
 
-### Salida (`out/convert/`)
+### Output (`out/convert/`)
 
-- `<slug>.json`: el portapapeles.
-- `<slug>.head.css`: el CSS que va al head.
-- `<slug>.report.json`: los avisos.
-  - `unsupported`: nodos DOM y estados que van al head.
-  - `cascade`: valores iniciales que no se pudieron deducir.
-  - `generic`: componentes de relume-ui que no tienen stub.
+- `<slug>.json`: the clipboard payload.
+- `<slug>.head.css`: CSS that goes in the page head.
+- `<slug>.report.json`: warnings.
+  - `unsupported`: DOM nodes, and states sent to the head.
+  - `cascade`: initial values that could not be inferred.
+  - `generic`: relume-ui components without a stub.
 
-## Qué entra y qué no
+## What is supported
 
-- **Entra:**
-  - JSX de componentes con props por defecto, `map` y condicionales.
-  - Las utilidades de Tailwind 3 con el preset de Relume.
-  - Breakpoints `sm`/`md`/`lg` → tiny/small/medium/main. Con otro set de breakpoints, se aproximan a esos rangos fijos de Webflow.
-  - `hover:` y `active:` como estados nativos.
-- **Tipos nativos:** Block, Link (los botones salen como Link botón), Image, Heading, Paragraph, List, ListItem,
-  Blockquote y Span. Los SVG salen como HtmlEmbed.
-- **Como nodo DOM (pendiente de F7):** input, label, form, iframe, table.
-- **No entra:**
-  - El estilo de `Button` de relume-ui: el paquete no se instala y queda el botón por defecto de Webflow.
-  - Los iconos reales: sale un marcador con el nombre del icono.
-  - Las animaciones de framer-motion: se evalúa el estado final.
-  - El ancho de los componentes al cambiar el tamaño de la ventana (`useMediaQuery` siempre devuelve false).
+- **Supported:**
+  - Component JSX with default props, `map` and conditionals.
+  - Tailwind 3 utilities, with the Relume preset or your own config.
+  - Breakpoints `sm`/`md`/`lg` → Webflow's tiny/small/medium/main. Other breakpoint sets are approximated to those
+    fixed Webflow ranges.
+  - `hover:` and `active:` as native states.
+- **Native types:** Block, Link (buttons become button Links), Image, Heading, Paragraph, List, ListItem, Blockquote
+  and Span. SVGs become HtmlEmbed.
+- **Emitted as DOM nodes (native mapping planned):** input, label, form, iframe, table.
+- **Not supported:**
+  - relume-ui `Button` styling: the package is not executed, so buttons keep Webflow's default style.
+  - Real icons: a placeholder named after the icon is emitted.
+  - framer-motion animations: the final state is evaluated.
+  - Viewport-dependent rendering (`useMediaQuery` always returns false).
 
-## Seguridad
+## Security
 
-El conversor **ejecuta** el TSX para obtener el árbol del primer render. Para tratarlo como código no confiable:
-- Corre en un subproceso con `sandbox-exec` de macOS: sin red, sin escritura en `/Users`, con el entorno vacío y
+The converter **executes** the TSX to get the first-render tree. To treat it as untrusted code:
+- It runs in a subprocess under macOS `sandbox-exec`: no network, no writes under `/Users`, an empty environment and
   `bun --no-install`.
-- Cada import se reescribe a un stub de una lista blanca (`src/eval/stubs/`). No se carga ningún paquete real.
-- Si hay un import desconocido o una construcción de carga dinámica (`import()`, `require`, `eval`, `Function`,
-  `globalThis`, `process`, `fetch`), falla antes de ejecutar nada.
+- Every import is rewritten to a stub from an allowlist (`src/eval/stubs/`). No real package is loaded.
+- An unknown import or any dynamic-loading construct (`import()`, `require`, `eval`, `Function`, `globalThis`,
+  `process`, `fetch`) fails before anything runs.
 
-`tests/security.test.ts` cubre cada uno de esos casos. La excepción es `--tailwind-config`: es código del propio
-usuario y corre fuera del sandbox, igual que en su build de Tailwind.
+`tests/security.test.ts` covers each of these cases. The exception is `--tailwind-config`: it is the user's own code
+and runs outside the sandbox, just like in their Tailwind build.
 
-## Documentación
+## Documentation
 
-- [`docs/webflow-paste-behavior.md`](docs/webflow-paste-behavior.md): lo que hace Webflow al pegar (colisiones de clases,
-  variables, breakpoints, grid), medido en un sitio real.
+- [`docs/webflow-paste-behavior.md`](docs/webflow-paste-behavior.md): what Webflow does on paste (class collisions,
+  variables, breakpoints, grid), measured on a real site.
 
 ## Tests
 
 ```bash
 bun --no-install test
-bun --no-install test emit     # solo un área
+bun --no-install test emit     # a single area
 ```
 
-## Licencia
+## License
 
-[MIT](LICENSE). Webflow y Relume son marcas de sus dueños; este proyecto no está afiliado a ninguno. El preset
-`@relume_io/relume-tailwind` se instala desde npm con sus propios términos y no se redistribuye aquí.
+[MIT](LICENSE). Webflow and Relume are trademarks of their respective owners; this project is not affiliated with
+either. The `@relume_io/relume-tailwind` preset is installed from npm under its own terms and is not redistributed
+here.
